@@ -9,10 +9,9 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Укажите ваш полный токен от @BotFather
-BOT_TOKEN = "88616351451:AAGxnymMvfp0ltfb0ZTkueh8p4WYievaGCs"
+# Токен исправлен на корректный формат (без лишней восьмерки в начале)
+BOT_TOKEN = "8616351451:AAGxnymMvfp0ltfb0ZTkueh8p4WYievaGCs"
 
-# Настройка базы данных SQLite в папке /app/data
 os.makedirs("/app/data", exist_ok=True)
 DB_PATH = "/app/data/database.db"
 
@@ -133,7 +132,7 @@ async def check_user_subscriptions(user_id: int) -> tuple[bool, list]:
     for ch_id, ch_url in channels:
         try:
             member = await bot.get_chat_member(chat_id=ch_id, user_id=user_id)
-            if member.status in ["left", "kicked"]:
+            if member.status in ["left", "kicked", "restricted"]:
                 unsubscribed.append((ch_id, ch_url))
         except Exception as e:
             logging.error(f"Ошибка проверки {ch_id}: {e}")
@@ -156,12 +155,15 @@ def build_files_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 async def send_file_to_user(chat_id: int, file_id: str, file_type: str):
-    if file_type == "document":
-        await bot.send_document(chat_id=chat_id, document=file_id)
-    elif file_type == "photo":
-        await bot.send_photo(chat_id=chat_id, photo=file_id)
-    elif file_type == "video":
-        await bot.send_video(chat_id=chat_id, video=file_id)
+    try:
+        if file_type == "document":
+            await bot.send_document(chat_id=chat_id, document=file_id)
+        elif file_type == "photo":
+            await bot.send_photo(chat_id=chat_id, photo=file_id)
+        elif file_type == "video":
+            await bot.send_video(chat_id=chat_id, video=file_id)
+    except Exception as e:
+        logging.error(f"Ошибка отправки файла: {e}")
 
 # --- Хэндлеры ---
 
@@ -300,33 +302,49 @@ async def process_file_title(message: types.Message, state: FSMContext):
 
 # --- Добавление каналов и пересылка ---
 
-@dp.message(F.forward_from_chat)
+@dp.message(F.forward_origin)
 async def add_channel_by_forward(message: types.Message):
     admin_id = get_admin()
     if not admin_id or message.from_user.id != admin_id:
         return
-    chat = message.forward_from_chat
-    url = f"https://t.me/{chat.username}" if chat.username else "https://t.me/"
-    add_channel(str(chat.id), url)
-    await message.answer(f"✅ Канал `{chat.title}` добавлен!")
+    
+    # Обновленная безопасная логика получения данных канала для aiogram 3.x
+    origin = message.forward_origin
+    if getattr(origin, 'type', None) == 'channel':
+        chat = origin.chat
+        url = f"https://t.me/{chat.username}" if getattr(chat, 'username', None) else "https://t.me/"
+        add_channel(str(chat.id), url)
+        await message.answer(f"✅ Канал `{chat.title}` добавлен!")
 
 @dp.message(F.reply_to_message)
 async def reply_handler(message: types.Message):
     admin_id = get_admin()
     if not admin_id or message.from_user.id != admin_id:
         return
-    if message.reply_to_message.forward_from:
-        target_id = message.reply_to_message.forward_from.id
+    
+    # Безопасное извлечение ID пользователя, от которого переслано сообщение
+    replied = message.reply_to_message
+    target_id = None
+    
+    if replied.forward_origin and getattr(replied.forward_origin, 'type', None) == 'user':
+        target_id = replied.forward_origin.sender_user.id
+    elif replied.forward_from:
+        target_id = replied.forward_from.id
+        
+    if target_id:
         try:
             await bot.send_message(chat_id=target_id, text=message.text)
             await message.answer("✅ Ответ отправлен пользователю.")
         except Exception as e:
             await message.answer(f"❌ Не удалось отправить: {e}")
+    else:
+        await message.answer("⚠️ Не удалось определить пользователя. У него скрыт профиль при пересылке.")
 
 @dp.message()
 async def forward_to_admin(message: types.Message):
     add_user(message.from_user.id)
     admin_id = get_admin()
+    
     if message.from_user.id == admin_id:
         if message.text and message.text.startswith("@"):
             parts = message.text.split()
@@ -334,9 +352,13 @@ async def forward_to_admin(message: types.Message):
                 add_channel(parts[0], parts[1])
                 await message.answer(f"✅ Канал {parts[0]} сохранен!")
                 return
+                
     if admin_id and message.from_user.id != admin_id:
-        await bot.forward_message(chat_id=admin_id, from_chat_id=message.chat.id, message_id=message.message_id)
-        await message.answer("Сообщение отправлено администратору.")
+        try:
+            await bot.forward_message(chat_id=admin_id, from_chat_id=message.chat.id, message_id=message.message_id)
+            await message.answer("Сообщение отправлено администратору.")
+        except Exception as e:
+            logging.error(f"Ошибка пересылки админу: {e}")
 
 async def main():
     logging.basicConfig(level=logging.INFO)
