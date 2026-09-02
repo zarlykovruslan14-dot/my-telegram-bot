@@ -9,8 +9,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Токен вашего бота от @BotFather
-BOT_TOKEN = "8616351451:AAGxnymMvfp0ltfb0ZTkueh8p4WYievaGCsА"
+# Токен вашего бота от @BotFather (исправлена буква в конце)
+BOT_TOKEN = "8616351451:AAGxnymMvfp0ltfb0ZTkueh8p4WYievaGCs"
 
 # Настройка постоянной базы данных SQLite в папке /app/data
 os.makedirs("/app/data", exist_ok=True)
@@ -228,21 +228,24 @@ async def admin_auth(message: types.Message):
 
 @dp.message(Command("del_channels"))
 async def del_channels_cmd(message: types.Message):
-    if message.from_user.id != get_admin():
+    admin_id = get_admin()
+    if not admin_id or message.from_user.id != admin_id:
         return
     clear_channels()
     await message.answer("🗑 Список каналов очищен!")
 
 @dp.message(Command("del_files"))
 async def del_files_cmd(message: types.Message):
-    if message.from_user.id != get_admin():
+    admin_id = get_admin()
+    if not admin_id or message.from_user.id != admin_id:
         return
     clear_files()
     await message.answer("🗑 Все файлы удалены из списка!")
 
 @dp.message(Command("broadcast"))
 async def broadcast_cmd(message: types.Message):
-    if message.from_user.id != get_admin():
+    admin_id = get_admin()
+    if not admin_id or message.from_user.id != admin_id:
         return
     text = message.text.replace("/broadcast", "").strip()
     if not text:
@@ -263,7 +266,8 @@ async def send_safe(uid, text):
 
 @dp.message(F.content_type.in_({'document', 'photo', 'video'}))
 async def handle_admin_file(message: types.Message, state: FSMContext):
-    if message.from_user.id != get_admin():
+    admin_id = get_admin()
+    if not admin_id or message.from_user.id != admin_id:
         return
 
     if message.document:
@@ -284,7 +288,8 @@ async def handle_admin_file(message: types.Message, state: FSMContext):
 
 @dp.message(AddFileState.waiting_for_button_title)
 async def process_file_title(message: types.Message, state: FSMContext):
-    if message.from_user.id != get_admin():
+    admin_id = get_admin()
+    if not admin_id or message.from_user.id != admin_id:
         return
 
     title = message.text.strip()
@@ -298,7 +303,8 @@ async def process_file_title(message: types.Message, state: FSMContext):
 
 @dp.message(F.forward_from_chat)
 async def add_channel_by_forward(message: types.Message):
-    if message.from_user.id != get_admin():
+    admin_id = get_admin()
+    if not admin_id or message.from_user.id != admin_id:
         return
     chat = message.forward_from_chat
     url = f"https://t.me/{chat.username}" if chat.username else "https://t.me/"
@@ -307,7 +313,8 @@ async def add_channel_by_forward(message: types.Message):
 
 @dp.message(F.reply_to_message)
 async def reply_handler(message: types.Message):
-    if message.from_user.id != get_admin():
+    admin_id = get_admin()
+    if not admin_id or message.from_user.id != admin_id:
         return
     if message.reply_to_message.forward_from:
         target_id = message.reply_to_message.forward_from.id
