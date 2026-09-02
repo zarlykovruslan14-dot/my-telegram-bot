@@ -9,14 +9,13 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Токен вашего бота от @BotFather (исправлена буква в конце)
-BOT_TOKEN = "8616351451:AAGxnymMvfp0ltfb0ZTkueh8p4WYievaGCs"
+# Укажите ваш полный токен от @BotFather
+BOT_TOKEN = "88616351451:AAGxnymMvfp0ltfb0ZTkueh8p4WYievaGCs"
 
-# Настройка постоянной базы данных SQLite в папке /app/data
+# Настройка базы данных SQLite в папке /app/data
 os.makedirs("/app/data", exist_ok=True)
 DB_PATH = "/app/data/database.db"
 
-# Состояния для ожидания названия кнопки при загрузке файла
 class AddFileState(StatesGroup):
     waiting_for_button_title = State()
 
